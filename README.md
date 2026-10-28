@@ -88,13 +88,13 @@ All'avvio l'ESP32 prova a collegarsi alla rete salvata in flash. Se non ce n'è 
 | | |
 |---|---|
 | SSID | `DJIController` |
-| Password | `djigimbal` |
+| Password | nessuna (rete aperta) |
 | Indirizzo | `http://192.168.4.1` |
 
 Per salvare la tua rete: `http://192.168.4.1/api/wifi?ssid=NomeRete&password=Segreto` (oppure da console
 `wifi NomeRete Segreto`). L'ESP32 si riavvia e da quel momento risponde anche su `http://djicontroller.local`
-(mDNS). `api/wifi?reset=1` dimentica la rete. SSID, password e hostname predefiniti si cambiano in
-[platformio.ini](platformio.ini).
+(mDNS). `api/wifi?reset=1` dimentica la rete. SSID, hostname e un'eventuale password dell'access point (almeno 8 caratteri)
+si impostano in [platformio.ini](platformio.ini).
 
 ### API HTTP
 
@@ -128,8 +128,8 @@ curl "http://djicontroller.local/api/recenter"
 `speed` e `joystick` si fermano da soli allo scadere di `ms`. Per un movimento "finché tengo premuto" (es. Stream
 Deck) basta ripetere la chiamata più spesso di `ms` e chiamare `/api/stop` al rilascio.
 
-> L'API non ha autenticazione: chiunque sia sulla stessa rete può muovere il gimbal. In access point la
-> protezione è la password Wi-Fi, quindi cambia quella predefinita.
+> L'API non ha autenticazione e l'access point è aperto: chiunque sia nel raggio del Wi-Fi può collegarsi e
+> muovere il gimbal. Se serve, imposta `WIFI_AP_PASSWORD` in [platformio.ini](platformio.ini).
 
 ### Console seriale (115200 baud)
 
