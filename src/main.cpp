@@ -132,6 +132,11 @@ void readSerial() {
 
 void setup() {
   Serial.begin(115200);
+#ifdef CAN_STANDBY_PIN
+  // Boards that wire the transceiver's Rs/standby pin to a GPIO: low selects high-speed mode.
+  pinMode(CAN_STANDBY_PIN, OUTPUT);
+  digitalWrite(CAN_STANDBY_PIN, LOW);
+#endif
   if (!bus.begin(CAN_TX_PIN, CAN_RX_PIN, Gimbal::kRxId)) {
     Serial.println("CAN init failed");
   }

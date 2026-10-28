@@ -29,6 +29,11 @@ In più l'ESP32 offre Bluetooth/Wi-Fi, utili per un eventuale controllo wireless
 | Resistenza 47 kΩ | Pull-down su AD_COM, senza la quale la porta non eroga corrente |
 | Connettore RSA/NATO | Vedi le opzioni sotto |
 
+**Alternativa tutto-in-uno: LilyGO T-CAN485.** È un ESP32 con transceiver CAN (SN65HVD231) a bordo e
+ingresso 7–12 V, alimentabile direttamente dagli 8 V della porta RSA senza buck. Il margine sul minimo è però
+ridotto (circa 0,6 V). Si compila con `pio run -e tcan485`: CAN su GPIO27 (TX) e GPIO26 (RX), mentre GPIO23
+viene tenuto basso per la modalità ad alta velocità del transceiver.
+
 ### Pinout della porta RSA/NATO
 
 Fonte: *DJI R SDK Protocol and User Interface v2.3*, §3.1.2. Il documento descrive l'RS 2; DJI dichiara il
