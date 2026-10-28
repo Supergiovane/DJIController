@@ -186,6 +186,7 @@ Deck) basta ripetere la chiamata più spesso di `ms` e chiamare `/api/stop` al r
 | `rec 1\|0` | Avvia o ferma la registrazione (serve il cavo di controllo camera) |
 | `ip` | Mostra la rete |
 | `wifi SSID PASS` | Prova una rete e la salva se il collegamento riesce (`wifi reset` la dimentica e riavvia) |
+| `sniff [raw]` | Sniffer in sola ricezione su tutti gli ID CAN, per analizzare un accessorio esistente (`sniff off` per uscire) |
 
 ## Struttura
 

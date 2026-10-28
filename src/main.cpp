@@ -8,6 +8,7 @@
 #include "Gimbal.h"
 #include "MotionHold.h"
 #include "PresetStore.h"
+#include "Sniffer.h"
 #include "WebApi.h"
 #include "WifiSetup.h"
 
@@ -17,6 +18,8 @@ CanBus bus;
 Gimbal gimbal(bus);
 MotionHold motion(gimbal);
 PresetStore presets;
+Sniffer sniffer(bus);
+bool sniffing = false;
 WebApi web(gimbal, motion, presets);
 
 String line;
@@ -34,7 +37,8 @@ const char* kHelp =
     "  push 1|0        enable/disable angle push\n"
     "  rec 1|0         camera record start/stop\n"
     "  ip              show network\n"
-    "  wifi SSID PASS  join a network, saved once connected (wifi reset forgets it and reboots)\n";
+    "  wifi SSID PASS  join a network, saved once connected (wifi reset forgets it and reboots)\n"
+    "  sniff [raw]     listen-only bus monitor, all CAN IDs (sniff off to stop)\n";
 
 void requestAndReport(dji::Packet packet) {
   dji::Packet reply;
@@ -102,8 +106,19 @@ void handleCommand(const String& input) {
     requestAndReport(dji::setParameterPush(flag != 0));
   } else if (sscanf(cmd, "rec %d", &flag) == 1) {
     requestAndReport(dji::cameraRecord(flag != 0));
+  } else if (input == "sniff" || input == "sniff raw") {
+    motion.stop();
+    bus.end();
+    sniffing = bus.begin(CAN_TX_PIN, CAN_RX_PIN, CanBus::kAcceptAll, true);
+    if (sniffing) sniffer.start(input == "sniff raw");
+    else Serial.println("CAN init failed");
+  } else if (input == "sniff off") {
+    bus.end();
+    sniffing = false;
+    Serial.println(bus.begin(CAN_TX_PIN, CAN_RX_PIN, Gimbal::kRxId) ? "sniffer off" : "CAN init failed");
   } else if (input == "ip") {
-    Serial.println(wifiDescription());
+    const String saved = savedWifiSsid();
+    Serial.println(wifiDescription() + ", saved network: " + (saved.length() > 0 ? saved : String("none")));
   } else if (input == "wifi reset") {
     forgetWifi();
     ESP.restart();
@@ -150,7 +165,12 @@ void setup() {
 
 void loop() {
   bus.service();
-  gimbal.poll();
+  // The sniffer owns the bus while it runs; gimbal commands can't be sent in listen-only mode anyway.
+  if (sniffing) {
+    sniffer.poll();
+  } else {
+    gimbal.poll();
+  }
   web.handle();
   readSerial();
   motion.update();

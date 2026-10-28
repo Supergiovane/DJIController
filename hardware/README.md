@@ -73,6 +73,25 @@ Il primo pezzo conviene stamparlo solo come prova di aggancio sulla guida, prima
 Per agganciare il morsetto: allenta la manopola e apri la ganascia di almeno 3 mm, inclina il morsetto
 infilando il gancio fisso sotto un lato della guida, abbassalo e stringi.
 
+## Ascoltare il bus con il ricevitore SmallRig 3920
+
+Il ricevitore del controller wireless SmallRig 3920 si monta sulla porta RSA e comanda il gimbal: è il modo più
+sicuro per verificare protocollo e contatti sul gimbal reale.
+
+1. **Apri il ricevitore** e fotografa la scheda dai due lati. Servono la sigla del chip principale e quella del
+   transceiver CAN (un SOIC-8 vicino ai pogo pin, tipo TJA1051 o SN65HVD23x).
+2. **Trova i contatti del CAN.** Nei transceiver comuni il pin 7 è CANH, il 6 è CANL e il 2 è GND: verificalo sul
+   datasheet del chip trovato.
+3. **Controlla la terminazione.** A gimbal spento misura la resistenza tra CANH e CANL. Con circa 120 Ω lascia la
+   resistenza del modulo SN65HVD230; con circa 60 Ω il bus è già terminato ai due capi, quindi va tolta quella
+   del modulo.
+4. **Collega tre fili sottili** (CANH, CANL, GND) al modulo SN65HVD230, a sua volta collegato all'ESP32 alimentato
+   dall'USB del computer. Non collegare la VCC della porta.
+5. **Avvia lo sniffer** dalla console seriale con `sniff` oppure `sniff raw` (tutti i frame). L'ESP32 è in sola
+   ricezione: non trasmette e non conferma i messaggi, quindi non disturba gimbal e ricevitore. Ogni comando del
+   3920 compare decodificato, se è R SDK, oppure come riepilogo dei byte per ID. `sniff off` torna alla modalità
+   normale.
+
 ## Identificare gli 8 contatti
 
 La documentazione DJI descrive 6 contatti per l'RS 2 (VCC 8 V, CANL, SBUS_RX, CANH, AD_COM, GND), mentre questa

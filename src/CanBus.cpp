@@ -4,18 +4,26 @@
 
 #include <cstring>
 
-bool CanBus::begin(int txPin, int rxPin, uint32_t acceptId) {
-  twai_general_config_t general = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)txPin, (gpio_num_t)rxPin, TWAI_MODE_NORMAL);
-  general.tx_queue_len = 16;  // A 64-byte packet is 8 frames.
-  general.rx_queue_len = 32;
+bool CanBus::begin(int txPin, int rxPin, uint32_t acceptId, bool listenOnly) {
+  twai_general_config_t general = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)txPin, (gpio_num_t)rxPin,
+                                                              listenOnly ? TWAI_MODE_LISTEN_ONLY : TWAI_MODE_NORMAL);
+  general.tx_queue_len = listenOnly ? 0 : 16;  // A 64-byte packet is 8 frames.
+  general.rx_queue_len = 64;
   twai_timing_config_t timing = TWAI_TIMING_CONFIG_1MBITS();
-  // The bus also carries focus wheel / accessory traffic, so accept only the gimbal's ID.
-  // Single-filter layout for standard frames: ID in bits 31..21; mask bits set to 1 mean "don't care".
-  twai_filter_config_t filter = {};
-  filter.acceptance_code = acceptId << 21;
-  filter.acceptance_mask = ~(0x7FFu << 21);
-  filter.single_filter = true;
+  twai_filter_config_t filter = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+  if (acceptId != kAcceptAll) {
+    // The bus also carries focus wheel / accessory traffic, so accept only the gimbal's ID.
+    // Single-filter layout for standard frames: ID in bits 31..21; mask bits set to 1 mean "don't care".
+    filter.acceptance_code = acceptId << 21;
+    filter.acceptance_mask = ~(0x7FFu << 21);
+    filter.single_filter = true;
+  }
   return twai_driver_install(&general, &timing, &filter) == ESP_OK && twai_start() == ESP_OK;
+}
+
+void CanBus::end() {
+  twai_stop();
+  twai_driver_uninstall();
 }
 
 bool CanBus::send(uint32_t id, const uint8_t* data, size_t len, uint32_t timeoutMs) {
@@ -26,10 +34,11 @@ bool CanBus::send(uint32_t id, const uint8_t* data, size_t len, uint32_t timeout
   return twai_transmit(&message, pdMS_TO_TICKS(timeoutMs)) == ESP_OK;
 }
 
-int CanBus::receive(uint8_t* data, uint32_t timeoutMs) {
+int CanBus::receive(uint8_t* data, uint32_t timeoutMs, uint32_t* id) {
   twai_message_t message;
   if (twai_receive(&message, pdMS_TO_TICKS(timeoutMs)) != ESP_OK) return -1;
   if (message.extd || message.rtr) return 0;
+  if (id) *id = message.identifier;
   memcpy(data, message.data, message.data_length_code);
   return message.data_length_code;
 }
