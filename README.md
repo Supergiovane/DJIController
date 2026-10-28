@@ -63,7 +63,8 @@ I pin CAN si cambiano in [platformio.ini](platformio.ini).
 
 La porta RSA ha contatti a molla nel morsetto NATO. Le strade possibili:
 
-1. **Morsetto NATO stampato in 3D con pogo pin**: la soluzione più pulita, ma richiede il rilievo dei contatti.
+1. **Morsetto NATO stampato in 3D con pogo pin** (scelta del progetto): modello, STL e istruzioni in
+   [hardware/](hardware/README.md). La porta dell'RS 4 ha 8 contatti, non 6: la mappatura va verificata.
 2. **Ricevitore/accessorio RSA di terze parti** (es. ricevitore cablato Tilta) da cui prelevare i segnali: è la strada
    seguita da [esp32-dji-ronin-controller](https://github.com/yifan-gu/esp32-dji-ronin-controller) su RS 4.
 3. **DJI Focus Wheel** montata sulla porta RSA: espone un connettore a 4 pin (VCC_5V, GND, CANH, CANL) con
@@ -158,6 +159,7 @@ src/WifiSetup.*   rete: station con credenziali salvate, oppure access point
 src/WebApi.*      API HTTP
 src/main.cpp      avvio e console seriale
 test/             test Unity (env native)
+hardware/         morsetto NATO stampabile in 3D (modello parametrico Python + STL)
 docs/protocol.md  riassunto del protocollo
 ```
 
