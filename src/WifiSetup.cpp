@@ -13,9 +13,9 @@ constexpr uint32_t kConnectTimeoutMs = 10000;
 
 void beginWifi() {
   Preferences prefs;
-  prefs.begin(kPrefsNamespace, true);
-  const String ssid = prefs.getString("ssid", "");
-  const String password = prefs.getString("password", "");
+  prefs.begin(kPrefsNamespace, false);  // Read-write so the namespace is created on first boot instead of logging an error.
+  const String ssid = prefs.isKey("ssid") ? prefs.getString("ssid") : "";
+  const String password = prefs.isKey("password") ? prefs.getString("password") : "";
   prefs.end();
 
   WiFi.setHostname(WIFI_HOSTNAME);
