@@ -128,6 +128,9 @@
   .actions .btn { min-height: 36px; padding: 6px 12px; font-size: 13px; }
   pre.response { margin-top: 8px; max-height: 240px; overflow: auto; }
   .notice ul { margin: 6px 0 10px; padding-left: 18px; }
+  #banner .notice { position: relative; margin: 16px 0 0; padding-right: 40px; }
+  .banner-close { position: absolute; top: 4px; right: 4px; width: 36px; height: 36px; border: 0; background: none;
+    color: var(--muted); font-size: 16px; cursor: pointer; }
 
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: rgba(15,17,21,.95); backdrop-filter: blur(8px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
   nav .inner { max-width: 560px; margin: 0 auto; display: flex; }
@@ -155,6 +158,7 @@
 </header>
 
 <main>
+  <div id="banner"></div>
   <!-- Controllo -->
   <section class="tab" id="tab-control">
     <div class="card">
@@ -404,11 +408,12 @@ async function run(button, fn, okMessage) {
   }
 }
 
-// Buttons that need a second tap within 3 s to act.
+// Buttons that need a second tap within 3 s to act. A second tap in under half a second is an accidental double
+// tap (or a tap that landed here after the layout moved), so it is ignored.
 function confirmTap(button, label) {
-  if (button.dataset.armed) return true;
+  if (button.dataset.armed) return Date.now() - Number(button.dataset.armed) > 500;
   const original = button.textContent;
-  button.dataset.armed = '1';
+  button.dataset.armed = String(Date.now());
   button.classList.add('confirm');
   button.textContent = label;
   setTimeout(() => {
@@ -768,6 +773,13 @@ $('#exportBtn').addEventListener('click', (e) => run(e.currentTarget, async () =
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }, 'Configurazione esportata'));
 
+// Message at the top of every tab, closed with its ✕.
+function bannerNotice(kind, nodes) {
+  const close = el('button', { className: 'banner-close', textContent: '✕', title: 'Chiudi' });
+  close.onclick = () => $('#banner').replaceChildren();
+  $('#banner').replaceChildren(el('div', { className: `notice ${kind}` }, [close, ...nodes]));
+}
+
 function importNotice(kind, nodes) {
   $('#importResult').replaceChildren(el('div', { className: `notice ${kind}` }, nodes));
 }
@@ -815,13 +827,16 @@ $('#importFile').addEventListener('change', async (e) => {
     if (result.wifi === 'saved') summary.push('rete salvata');
     if (config.ui) summary.push('preferenze');
     const done = `Importato: ${summary.join(', ') || 'niente da importare'}.`;
+    // Leave the settings page: once the dialog closes, the "forget network" button moves up under the finger.
+    $('#importResult').replaceChildren();
+    showTab('control');
+    window.scrollTo(0, 0);
     if (result.wifi === 'joining') {
-      importNotice('', [document.createTextNode(done), el('br'), el('span', { className: 'spin' }),
+      bannerNotice('', [document.createTextNode(done), el('br'), el('span', { className: 'spin' }),
         document.createTextNode(`Collegamento a “${body.wifi.ssid}”…`)]);
-      followJoin(body.wifi.ssid, importNotice);
+      followJoin(body.wifi.ssid, bannerNotice);
     } else {
-      importNotice('ok', [document.createTextNode(done)]);
-      refreshWifi();
+      bannerNotice('ok', [document.createTextNode(done)]);
     }
   }, 'Configurazione importata');
   importNotice('', [
