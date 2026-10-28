@@ -48,6 +48,13 @@ supporto del protocollo anche su RS 3 Pro, RS 4 e RS 4 Pro, ma **verifica i pin 
 | 5 | AD_COM | Rilevamento accessorio: serve un pull-down da 10–100 kΩ verso GND, altrimenti la porta non eroga alimentazione |
 | 6 | GND | |
 
+### Pinout del ricevitore SmallRig 3920RX
+
+![Collegamenti tra il flat interno e i pogo pin del 3920RX](docs/Pinout_Smallrig_3920RX.png)
+
+Il ricevitore porta 6 piste interne sugli 8 pogo pin: le coppie blu e verde sono probabilmente alimentazione e GND,
+rosso e giallo il bus CAN, due pin restano liberi. Dettagli e verifica col multimetro in [hardware/](hardware/README.md#pinout-del-ricevitore-smallrig-3920rx).
+
 ### Collegamenti
 
 ```
