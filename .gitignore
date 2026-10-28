@@ -7,3 +7,4 @@
 hardware/.venv/
 __pycache__/
 *.heic
+src/generated/

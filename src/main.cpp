@@ -7,6 +7,7 @@
 #include "CanBus.h"
 #include "Gimbal.h"
 #include "MotionHold.h"
+#include "PresetStore.h"
 #include "WebApi.h"
 #include "WifiSetup.h"
 
@@ -15,7 +16,8 @@ namespace {
 CanBus bus;
 Gimbal gimbal(bus);
 MotionHold motion(gimbal);
-WebApi web(gimbal, motion);
+PresetStore presets;
+WebApi web(gimbal, motion, presets);
 
 String line;
 
@@ -32,7 +34,7 @@ const char* kHelp =
     "  push 1|0        enable/disable angle push\n"
     "  rec 1|0         camera record start/stop\n"
     "  ip              show network\n"
-    "  wifi SSID PASS  save network and reboot (wifi reset forgets it)\n";
+    "  wifi SSID PASS  join a network, saved once connected (wifi reset forgets it and reboots)\n";
 
 void requestAndReport(dji::Packet packet) {
   dji::Packet reply;
@@ -103,11 +105,11 @@ void handleCommand(const String& input) {
   } else if (input == "ip") {
     Serial.println(wifiDescription());
   } else if (input == "wifi reset") {
-    clearWifiCredentials();
+    forgetWifi();
     ESP.restart();
   } else if (sscanf(cmd, "wifi %32s %64s", ssid, password) >= 1) {
-    saveWifiCredentials(ssid, password);
-    ESP.restart();
+    joinWifi(ssid, password);
+    Serial.println("joining, check with: ip");
   } else if (input.length() > 0) {
     Serial.println("unknown command, type h");
   }
@@ -134,6 +136,7 @@ void setup() {
     Serial.println("CAN init failed");
   }
   gimbal.onPush(onPush);
+  presets.begin();
   beginWifi();
   web.begin();
   Serial.println("DJI RS controller ready on " + wifiDescription());
@@ -146,4 +149,5 @@ void loop() {
   web.handle();
   readSerial();
   motion.update();
+  updateWifi();
 }

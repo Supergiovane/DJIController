@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>DJI RS Controller</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b22;
+    --card-2: #20242d;
+    --line: #2a2f3a;
+    --text: #e8eaef;
+    --muted: #8b93a3;
+    --accent: #ff8a1f;
+    --accent-ink: #1a1006;
+    --ok: #3ccf7a;
+    --danger: #ff4d4f;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  button, input, select { font: inherit; color: inherit; }
+
+  header { position: sticky; top: 0; z-index: 5; background: rgba(15,17,21,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 560px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .bar h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 650; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--card-2); color: var(--muted); white-space: nowrap; }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.on { color: var(--text); }
+  .pill.on::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .angles { max-width: 560px; margin: 0 auto; padding: 0 16px 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .angle { background: var(--card); border-radius: 10px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  .angle span { font-size: 12px; color: var(--muted); }
+  .angle b { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  section.tab { display: none; padding-top: 16px; }
+  section.tab.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+
+  .btn { border: 1px solid var(--line); background: var(--card-2); border-radius: 10px; padding: 11px 14px; min-height: 44px; cursor: pointer; font-weight: 550; transition: transform .06s, opacity .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.danger { color: var(--danger); }
+  .btn.confirm { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.rec { color: var(--danger); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+  .seg { display: flex; background: var(--card-2); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 9px 6px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 550; min-height: 40px; }
+  .seg button.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+  label.field { display: block; font-size: 12px; color: var(--muted); }
+  label.field input, label.field select { display: block; width: 100%; margin-top: 4px; }
+  input[type=text], input[type=password], input[type=number], select {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+  .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  .pad-wrap { display: flex; justify-content: center; margin: 4px 0 16px; }
+  .pad { position: relative; width: min(78vw, 300px); aspect-ratio: 1; border-radius: 50%; touch-action: none; user-select: none;
+    background: radial-gradient(circle, var(--card-2) 0 34%, transparent 35%), radial-gradient(circle, #1c2028 0 70%, #15181e 71%);
+    border: 1px solid var(--line); }
+  .pad::before, .pad::after { content: ""; position: absolute; background: var(--line); }
+  .pad::before { left: 50%; top: 8%; bottom: 8%; width: 1px; }
+  .pad::after { top: 50%; left: 8%; right: 8%; height: 1px; }
+  .pad .hint { position: absolute; font-size: 11px; color: var(--muted); }
+  .knob { position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; margin: -15% 0 0 -15%; border-radius: 50%; z-index: 1;
+    background: radial-gradient(circle at 35% 30%, #ffb066, var(--accent)); box-shadow: 0 6px 18px rgba(255,138,31,.35); transition: transform .15s; }
+  .pad.dragging .knob { transition: none; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .item { background: var(--card-2); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+  .item .grow { flex: 1; min-width: 0; }
+  .item .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .sub { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .item .btn { min-height: 38px; padding: 8px 12px; }
+  .item.selectable { cursor: pointer; border: 1px solid transparent; }
+  .item.selected { border-color: var(--accent); }
+  .empty { color: var(--muted); text-align: center; padding: 18px 8px; font-size: 14px; }
+  .bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .bars i { width: 3px; background: var(--line); border-radius: 1px; }
+  .bars i.on { background: var(--text); }
+  .notice { border-radius: 10px; padding: 12px; font-size: 14px; margin-top: 12px; background: var(--card-2); }
+  .notice.ok { border-left: 3px solid var(--ok); }
+  .notice.err { border-left: 3px solid var(--danger); }
+  .notice a { color: var(--accent); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stack > * + * { margin-top: 10px; }
+  .note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--card-2); padding: 1px 5px; border-radius: 5px; }
+  .code { display: block; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; overflow-x: auto; white-space: pre; margin: 0; }
+  details.ep { background: var(--card-2); border-radius: 12px; margin-bottom: 8px; }
+  details.ep summary { list-style: none; cursor: pointer; padding: 12px; display: flex; gap: 10px; align-items: baseline; }
+  details.ep summary::-webkit-details-marker { display: none; }
+  details.ep summary .path { font: 600 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  details.ep summary .desc { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  details.ep .body { padding: 0 12px 12px; }
+  details.ep table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+  details.ep td { padding: 5px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  details.ep td:first-child { width: 34%; padding-right: 8px; }
+  .method { font: 700 10.5px ui-monospace, Menlo, monospace; padding: 2px 6px; border-radius: 5px; background: var(--line); color: var(--muted); flex: 0 0 auto; }
+  .method.read { background: rgba(60,207,122,.15); color: var(--ok); }
+  .method.move { background: rgba(255,138,31,.15); color: var(--accent); }
+  .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .actions .btn { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+  pre.response { margin-top: 8px; max-height: 240px; overflow: auto; }
+  .notice ul { margin: 6px 0 10px; padding-left: 18px; }
+
+  nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: rgba(15,17,21,.95); backdrop-filter: blur(8px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  nav .inner { max-width: 560px; margin: 0 auto; display: flex; }
+  nav button { flex: 1; border: 0; background: none; color: var(--muted); padding: 10px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; }
+  nav button svg { width: 22px; height: 22px; }
+  nav button.active { color: var(--accent); }
+
+  #toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+    background: var(--card-2); border: 1px solid var(--line); padding: 10px 16px; border-radius: 999px; font-size: 14px; transition: .2s; z-index: 10; max-width: calc(100% - 32px); }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.err { border-color: var(--danger); color: #ffb3b4; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>DJI RS Controller</h1>
+    <span id="gimbalPill" class="pill">Gimbal…</span>
+  </div>
+  <div class="angles">
+    <div class="angle"><span>Pan</span><b id="angYaw">–</b></div>
+    <div class="angle"><span>Tilt</span><b id="angPitch">–</b></div>
+    <div class="angle"><span>Roll</span><b id="angRoll">–</b></div>
+  </div>
+</header>
+
+<main>
+  <!-- Controllo -->
+  <section class="tab" id="tab-control">
+    <div class="card">
+      <div class="pad-wrap">
+        <div class="pad" id="pad">
+          <span class="hint" style="top:4%;left:50%;transform:translateX(-50%)">tilt su</span>
+          <span class="hint" style="bottom:4%;left:50%;transform:translateX(-50%)">tilt giù</span>
+          <span class="hint" style="left:5%;top:50%;transform:translateY(-50%)">pan</span>
+          <span class="hint" style="right:5%;top:50%;transform:translateY(-50%)">pan</span>
+          <div class="knob" id="knob"></div>
+        </div>
+      </div>
+      <div class="seg" id="modeSeg">
+        <button data-mode="joystick">Joystick nativo</button>
+        <button data-mode="speed">Velocità</button>
+      </div>
+      <div class="slider-label"><span>Velocità</span><span id="sensLabel"></span></div>
+      <input type="range" id="sens" min="5" max="100" step="5">
+      <div class="row" style="margin-top:12px">
+        <label class="check"><input type="checkbox" id="invertTilt"> Inverti tilt</label>
+        <label class="check"><input type="checkbox" id="invertPan"> Inverti pan</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid-2">
+        <button class="btn primary" data-api="recenter">Recenter</button>
+        <button class="btn" data-api="stop">Stop</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Modalità follow</h2>
+      <div class="seg">
+        <button data-api="follow" data-params='{"mode":"lock"}'>Lock</button>
+        <button data-api="follow" data-params='{"mode":"yaw"}'>Segui pan</button>
+        <button data-api="follow" data-params='{"mode":"sport"}'>Sport</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Camera</h2>
+      <div class="grid-2">
+        <button class="btn rec" data-api="record" data-params='{"on":1}'>● Avvia REC</button>
+        <button class="btn" data-api="record" data-params='{"on":0}'>■ Ferma REC</button>
+        <button class="btn" data-api="shutter">Scatto</button>
+        <button class="btn" data-api="activetrack">ActiveTrack</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Posizione</h2>
+      <form id="posForm" class="stack">
+        <div class="grid-3">
+          <label class="field">Pan °<input type="number" name="yaw" step="0.1" inputmode="decimal" placeholder="–"></label>
+          <label class="field">Tilt °<input type="number" name="pitch" step="0.1" inputmode="decimal" placeholder="–"></label>
+          <label class="field">Roll °<input type="number" name="roll" step="0.1" inputmode="decimal" placeholder="–"></label>
+        </div>
+        <div class="grid-2">
+          <label class="field">Tempo (s)<input type="number" name="time" step="0.1" min="0.1" max="25.5" value="2" inputmode="decimal"></label>
+          <label class="field">Riferimento
+            <select name="mode"><option value="abs">Assoluta</option><option value="rel">Relativa</option></select>
+          </label>
+        </div>
+        <button class="btn primary" type="submit" style="width:100%">Vai</button>
+      </form>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">Gli assi lasciati vuoti non si muovono.</p>
+    </div>
+  </section>
+
+  <!-- Preset -->
+  <section class="tab" id="tab-presets">
+    <div class="card">
+      <h2>Salva posizione attuale</h2>
+      <form id="presetForm" class="row">
+        <input type="text" id="presetName" maxlength="23" placeholder="Nome del preset" style="flex:2" required>
+        <button class="btn primary" type="submit">Salva</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="row" style="align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">Preset</h2>
+        <label class="check" style="justify-content:flex-end">Transizione
+          <input type="number" id="presetTime" min="0.1" max="25.5" step="0.1" style="width:80px;min-height:36px;padding:6px 8px"> s</label>
+      </div>
+      <div class="list" id="presetList"></div>
+    </div>
+  </section>
+
+  <!-- Wi-Fi -->
+  <section class="tab" id="tab-wifi">
+    <div class="card">
+      <h2>Stato</h2>
+      <dl class="kv" id="wifiStatus"></dl>
+    </div>
+    <div class="card">
+      <div class="row" style="align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">Reti disponibili</h2>
+        <button class="btn" id="scanBtn" style="flex:0 0 auto">Cerca</button>
+      </div>
+      <div class="list" id="networkList"><div class="empty">Premi “Cerca” per trovare le reti vicine.</div></div>
+    </div>
+    <div class="card">
+      <h2>Collegati</h2>
+      <form id="joinForm" class="stack">
+        <label class="field">Nome rete (SSID)<input type="text" id="joinSsid" autocomplete="off" autocapitalize="off" required></label>
+        <label class="field">Password<input type="password" id="joinPassword" autocomplete="off"></label>
+        <label class="check"><input type="checkbox" id="showPassword"> Mostra password</label>
+        <button class="btn primary" type="submit" style="width:100%">Collega</button>
+      </form>
+      <div id="joinResult"></div>
+      <p style="font-size:12px;color:var(--muted);margin:12px 0 0">Solo reti a 2,4 GHz. La rete viene salvata solo se la connessione riesce.</p>
+    </div>
+    <div class="card">
+      <h2>Backup configurazione</h2>
+      <p class="note">Preset, rete salvata e preferenze di questa pagina in un file JSON, da reimportare qui o su un altro controller.</p>
+      <label class="check"><input type="checkbox" id="exportSecrets"> Includi la password Wi-Fi nel file</label>
+      <div class="grid-2" style="margin-top:12px">
+        <button class="btn" id="exportBtn">Esporta</button>
+        <button class="btn" id="importBtn">Importa…</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <div id="importResult"></div>
+    </div>
+    <div class="card">
+      <button class="btn danger" id="forgetBtn" style="width:100%">Dimentica rete salvata e riavvia</button>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section class="tab" id="tab-api">
+    <div class="card">
+      <h2>Come funziona</h2>
+      <p class="note" style="color:var(--text)">Ogni comando è un indirizzo web: aprilo nel browser, chiamalo con <code>curl</code>, da uno Stream Deck,
+        da Bitfocus Companion o da uno script. Sono accettati sia GET sia POST, con i parametri nell'URL.</p>
+      <dl class="kv">
+        <dt>Indirizzo</dt><dd><code id="apiBase"></code></dd>
+        <dt>Risposte</dt><dd>JSON: <code>{"ok":true}</code> oppure <code>{"ok":false,"error":"…"}</code></dd>
+        <dt>Errori</dt><dd><code>400</code> parametri mancanti o errati · <code>404</code> non trovato ·
+          <code>502</code> il gimbal ha rifiutato il comando · <code>504</code> il gimbal non risponde</dd>
+        <dt>Angoli</dt><dd>In gradi. Pan = <code>yaw</code>, tilt = <code>pitch</code>, <code>roll</code></dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h2>Esempio: tieni premuto</h2>
+      <p class="note" style="color:var(--text)">Su un pulsante di Stream Deck o Companion: alla pressione fai partire il movimento con una durata
+        lunga, al rilascio fermalo. Se il rilascio non arriva, il gimbal si ferma comunque allo scadere di <code>ms</code>.</p>
+      <div class="stack" id="holdExample"></div>
+    </div>
+    <div id="apiDocs"></div>
+  </section>
+</main>
+
+<nav>
+  <div class="inner">
+    <button data-tab="control">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+      Controllo</button>
+    <button data-tab="presets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      Preset</button>
+    <button data-tab="wifi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>
+      Impostazioni</button>
+    <button data-tab="api">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>
+      API</button>
+  </div>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+// ---- Preferences (per browser) ----
+const prefs = (() => {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('djirs') || '{}'); } catch (e) {}
+  return {
+    get: (key, fallback) => (key in data ? data[key] : fallback),
+    set(key, value) { data[key] = value; try { localStorage.setItem('djirs', JSON.stringify(data)); } catch (e) {} },
+  };
+})();
+
+// ---- API ----
+const ERRORS = {
+  'no reply from gimbal': 'Il gimbal non risponde',
+  'angles not available': 'Angoli non disponibili',
+  'no free preset slot': 'Spazio preset esaurito',
+  'no such preset': 'Preset non trovato',
+  'execution failed': 'Il gimbal ha rifiutato il comando',
+  'parse error': 'Comando non valido per il gimbal',
+  'CAN send failed': 'Errore sul bus CAN',
+  'invalid JSON': 'File non valido',
+  'not a DJIController configuration': 'Il file non è una configurazione DJIController',
+};
+
+// GET with query parameters, or POST of `body` as JSON when given.
+async function api(path, params = {}, { timeout = 4000, body } = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== '' && value !== null && value !== undefined) query.set(key, value);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const qs = query.toString();
+    const res = await fetch(`/api/${path}${qs ? '?' + qs : ''}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+      ...(body && { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(ERRORS[data.error] || data.error || `Errore HTTP ${res.status}`);
+    return data;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Nessuna risposta dal controller');
+    if (e instanceof TypeError) throw new Error('Controller non raggiungibile');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+let toastTimer;
+function toast(message, isError = false) {
+  const el = $('#toast');
+  el.textContent = message;
+  el.className = 'show' + (isError ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.className = ''), isError ? 3500 : 1600);
+}
+
+async function run(button, fn, okMessage) {
+  if (button) button.disabled = true;
+  try {
+    const result = await fn();
+    if (okMessage) toast(okMessage);
+    return result;
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+// Buttons that need a second tap within 3 s to act.
+function confirmTap(button, label) {
+  if (button.dataset.armed) return true;
+  const original = button.textContent;
+  button.dataset.armed = '1';
+  button.classList.add('confirm');
+  button.textContent = label;
+  setTimeout(() => {
+    delete button.dataset.armed;
+    button.classList.remove('confirm');
+    button.textContent = original;
+  }, 3000);
+  return false;
+}
+
+const fmt = (v) => (v === undefined || v === null ? '–' : `${Number(v).toFixed(1)}°`);
+
+// ---- Tabs ----
+function showTab(name) {
+  $$('section.tab').forEach((s) => s.classList.toggle('active', s.id === `tab-${name}`));
+  $$('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  prefs.set('tab', name);
+  if (name === 'presets') loadPresets();
+  if (name === 'wifi') { refreshWifi(); if (!scanned) scan(false); }
+}
+$$('nav button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+// ---- Status ----
+let joystickActive = false;
+let lastAngles = null;
+
+async function pollStatus() {
+  if (!document.hidden && !joystickActive) {
+    try {
+      const s = await api('status', {}, { timeout: 2500 });
+      $('#gimbalPill').className = 'pill' + (s.gimbal ? ' on' : '');
+      $('#gimbalPill').textContent = s.gimbal ? 'Gimbal collegato' : 'Gimbal non risponde';
+      lastAngles = s.angles;
+      $('#angYaw').textContent = fmt(s.angles?.yaw);
+      $('#angPitch').textContent = fmt(s.angles?.pitch);
+      $('#angRoll').textContent = fmt(s.angles?.roll);
+    } catch (e) {
+      $('#gimbalPill').className = 'pill';
+      $('#gimbalPill').textContent = 'Controller offline';
+    }
+  }
+  setTimeout(pollStatus, 1500);
+}
+
+// ---- Simple command buttons ----
+$$('[data-api]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const params = button.dataset.params ? JSON.parse(button.dataset.params) : {};
+    run(button, () => api(button.dataset.api, params), 'Fatto');
+  });
+});
+
+// ---- Joystick ----
+const pad = $('#pad');
+const knob = $('#knob');
+let stick = { x: 0, y: 0 };
+let inFlight = false;
+let joyTimer = null;
+
+let mode = prefs.get('mode', 'joystick');
+const sens = $('#sens');
+sens.value = prefs.get('sens', 50);
+$('#invertTilt').checked = prefs.get('invertTilt', false);
+$('#invertPan').checked = prefs.get('invertPan', false);
+
+function updateSensLabel() {
+  $('#sensLabel').textContent = mode === 'speed' ? `max ${Math.round(sens.value * 1.2)}°/s` : `${sens.value}%`;
+}
+function setMode(next) {
+  mode = next;
+  prefs.set('mode', next);
+  $$('#modeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === next));
+  updateSensLabel();
+}
+$$('#modeSeg button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+sens.addEventListener('input', () => { prefs.set('sens', Number(sens.value)); updateSensLabel(); });
+$('#invertTilt').addEventListener('change', (e) => prefs.set('invertTilt', e.target.checked));
+$('#invertPan').addEventListener('change', (e) => prefs.set('invertPan', e.target.checked));
+setMode(mode);
+
+function stickFromEvent(e) {
+  const rect = pad.getBoundingClientRect();
+  const radius = rect.width / 2;
+  let x = (e.clientX - rect.left - radius) / radius;
+  let y = (rect.top + radius - e.clientY) / radius;
+  const length = Math.hypot(x, y);
+  if (length > 1) { x /= length; y /= length; }
+  knob.style.transform = `translate(${x * radius * 0.7}px, ${-y * radius * 0.7}px)`;
+  const dead = 0.08;
+  stick = { x: Math.abs(x) < dead ? 0 : x, y: Math.abs(y) < dead ? 0 : y };
+}
+
+async function sendStick() {
+  if (inFlight || !joystickActive) return;
+  inFlight = true;
+  const pan = stick.x * ($('#invertPan').checked ? -1 : 1);
+  const tilt = stick.y * ($('#invertTilt').checked ? -1 : 1);
+  const scale = mode === 'speed' ? sens.value * 1.2 : sens.value / 100;
+  const r = (v) => Math.round(v * scale * 100) / 100;
+  try {
+    await api(mode, { yaw: r(pan), pitch: r(tilt), ms: 400 }, { timeout: 1500 });
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    inFlight = false;
+  }
+}
+
+function endStick() {
+  if (!joystickActive) return;
+  joystickActive = false;
+  pad.classList.remove('dragging');
+  knob.style.transform = '';
+  clearInterval(joyTimer);
+  stick = { x: 0, y: 0 };
+  api('stop').catch((e) => toast(e.message, true));
+}
+
+pad.addEventListener('pointerdown', (e) => {
+  pad.setPointerCapture(e.pointerId);
+  joystickActive = true;
+  pad.classList.add('dragging');
+  stickFromEvent(e);
+  sendStick();
+  joyTimer = setInterval(sendStick, 100);
+});
+pad.addEventListener('pointermove', (e) => { if (joystickActive) stickFromEvent(e); });
+pad.addEventListener('pointerup', endStick);
+pad.addEventListener('pointercancel', endStick);
+pad.addEventListener('lostpointercapture', endStick);
+document.addEventListener('visibilitychange', () => { if (document.hidden) endStick(); });
+
+// ---- Position ----
+$('#posForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!f.yaw.value && !f.pitch.value && !f.roll.value) return toast('Inserisci almeno un asse', true);
+  run(f.querySelector('button'), () => api('position', {
+    yaw: f.yaw.value, pitch: f.pitch.value, roll: f.roll.value, time: f.time.value, mode: f.mode.value,
+  }), 'In movimento');
+});
+
+// ---- Presets ----
+const presetTime = $('#presetTime');
+presetTime.value = prefs.get('presetTime', 2);
+presetTime.addEventListener('change', () => prefs.set('presetTime', Number(presetTime.value)));
+
+function el(tag, props = {}, children = []) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+}
+
+async function loadPresets() {
+  const list = $('#presetList');
+  try {
+    const { presets } = await api('presets');
+    list.replaceChildren();
+    if (!presets.length) {
+      list.append(el('div', { className: 'empty', textContent: 'Nessun preset. Porta il gimbal in posizione e salvalo qui sopra.' }));
+      return;
+    }
+    for (const p of presets) {
+      const go = el('button', { className: 'btn primary', textContent: 'Vai' });
+      go.onclick = () => run(go, () => api('presets/recall', { slot: p.slot, time: presetTime.value }), `→ ${p.name}`);
+      const update = el('button', { className: 'btn', textContent: 'Aggiorna' });
+      update.onclick = () => {
+        if (!confirmTap(update, 'Conferma')) return;
+        run(update, () => api('presets/save', { slot: p.slot }), 'Preset aggiornato').then(loadPresets);
+      };
+      const del = el('button', { className: 'btn danger', textContent: '✕', title: 'Elimina' });
+      del.onclick = () => {
+        if (!confirmTap(del, 'Elimina')) return;
+        run(del, () => api('presets/delete', { slot: p.slot }), 'Preset eliminato').then(loadPresets);
+      };
+      list.append(el('div', { className: 'item' }, [
+        el('div', { className: 'grow' }, [
+          el('div', { className: 'title', textContent: p.name }),
+          el('div', { className: 'sub', textContent: `Pan ${fmt(p.yaw)} · Tilt ${fmt(p.pitch)} · Roll ${fmt(p.roll)}` }),
+        ]),
+        go, update, del,
+      ]));
+    }
+  } catch (e) {
+    list.replaceChildren(el('div', { className: 'empty', textContent: e.message }));
+  }
+}
+
+$('#presetForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('#presetName').value.trim();
+  if (!name) return;
+  run(e.target.querySelector('button'), () => api('presets/save', { name }), 'Preset salvato').then((r) => {
+    if (r) $('#presetName').value = '';
+    loadPresets();
+  });
+});
+
+// ---- Wi-Fi ----
+let scanned = false;
+let joinPolling = false;
+
+function signalBars(rssi) {
+  const level = rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1;
+  return el('span', { className: 'bars', title: `${rssi} dBm` },
+    [1, 2, 3, 4].map((i) => el('i', { className: i <= level ? 'on' : '', style: `height:${i * 25}%` })));
+}
+
+async function scan(refresh) {
+  const list = $('#networkList');
+  const button = $('#scanBtn');
+  button.disabled = true;
+  list.replaceChildren(el('div', { className: 'empty', innerHTML: '<span class="spin"></span>Ricerca in corso…' }));
+  try {
+    let result = await api('wifi/scan', refresh ? { refresh: 1 } : {});
+    for (let i = 0; result.scanning && i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      result = await api('wifi/scan');
+    }
+    scanned = true;
+    list.replaceChildren();
+    if (!result.networks?.length) {
+      list.append(el('div', { className: 'empty', textContent: 'Nessuna rete trovata.' }));
+      return;
+    }
+    for (const n of result.networks) {
+      const item = el('div', { className: 'item selectable' }, [
+        el('div', { className: 'grow' }, [
+          el('div', { className: 'title', textContent: n.ssid }),
+          el('div', { className: 'sub', textContent: n.secure ? 'Protetta' : 'Aperta' }),
+        ]),
+        signalBars(n.rssi),
+      ]);
+      item.onclick = () => {
+        $$('#networkList .item').forEach((i) => i.classList.remove('selected'));
+        item.classList.add('selected');
+        $('#joinSsid').value = n.ssid;
+        $('#joinPassword').value = '';
+        if (n.secure) $('#joinPassword').focus();
+      };
+      list.append(item);
+    }
+  } catch (e) {
+    list.replaceChildren(el('div', { className: 'empty', textContent: e.message }));
+  } finally {
+    button.disabled = false;
+  }
+}
+$('#scanBtn').addEventListener('click', () => scan(true));
+$('#showPassword').addEventListener('change', (e) => { $('#joinPassword').type = e.target.checked ? 'text' : 'password'; });
+
+function renderWifiStatus(s) {
+  const rows = [];
+  if (s.station) rows.push(['Collegato a', s.station.ssid], ['Indirizzo', `${s.station.ip}  ·  ${s.hostname}`]);
+  if (s.ap) rows.push(['Rete propria', `${s.ap.ssid} (${s.ap.ip})`]);
+  rows.push(['Rete salvata', s.saved || 'nessuna']);
+  $('#wifiStatus').replaceChildren(...rows.flatMap(([k, v]) => [el('dt', { textContent: k }), el('dd', { textContent: v })]));
+}
+
+async function refreshWifi() {
+  try {
+    const s = await api('wifi/status');
+    renderWifiStatus(s);
+    return s;
+  } catch (e) {
+    $('#wifiStatus').replaceChildren(el('dt', { textContent: 'Errore' }), el('dd', { textContent: e.message }));
+  }
+}
+
+function joinNotice(kind, nodes) {
+  $('#joinResult').replaceChildren(el('div', { className: `notice ${kind}` }, nodes));
+}
+
+async function followJoin(ssid) {
+  if (joinPolling) return;
+  joinPolling = true;
+  const started = Date.now();
+  // The join takes up to 15 s; the controller may drop off briefly while it changes channel.
+  while (Date.now() - started < 30000) {
+    await new Promise((r) => setTimeout(r, 1500));
+    let s;
+    try { s = await api('wifi/status', {}, { timeout: 2500 }); } catch (e) { continue; }
+    renderWifiStatus(s);
+    if (s.join.state === 'connected' && s.station) {
+      const url = `http://${s.station.ip}`;
+      joinNotice('ok', [
+        el('b', { textContent: `Collegato a ${s.station.ssid}.` }),
+        el('br'),
+        document.createTextNode(`Collega questo dispositivo a “${s.station.ssid}” e apri `),
+        el('a', { href: `http://${s.hostname}`, textContent: s.hostname }),
+        document.createTextNode(' oppure '),
+        el('a', { href: url, textContent: url }),
+        document.createTextNode('. La rete propria resta attiva fino al prossimo riavvio.'),
+      ]);
+      joinPolling = false;
+      return;
+    }
+    if (s.join.state === 'failed') {
+      joinNotice('err', [document.createTextNode(`Connessione a “${ssid}” non riuscita. Controlla la password e che la rete sia a 2,4 GHz.`)]);
+      joinPolling = false;
+      return;
+    }
+  }
+  joinNotice('err', [document.createTextNode('Il controller non risponde più: probabilmente si è collegato alla nuova rete. Collegati anche tu a quella rete e apri http://djicontroller.local')]);
+  joinPolling = false;
+}
+
+$('#joinForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const ssid = $('#joinSsid').value.trim();
+  if (!ssid) return;
+  run(e.target.querySelector('button'), async () => {
+    await api('wifi/join', { ssid, password: $('#joinPassword').value });
+    joinNotice('', [el('span', { className: 'spin' }), document.createTextNode(`Collegamento a “${ssid}”…`)]);
+    followJoin(ssid);
+  });
+});
+
+$('#forgetBtn').addEventListener('click', (e) => {
+  const button = e.currentTarget;
+  if (!confirmTap(button, 'Tocca di nuovo per confermare')) return;
+  run(button, () => api('wifi/forget'), 'Riavvio in corso…');
+});
+
+// ---- Backup ----
+const UI_KEYS = ['mode', 'sens', 'invertTilt', 'invertPan', 'presetTime'];
+
+function applyUiPrefs() {
+  sens.value = prefs.get('sens', 50);
+  $('#invertTilt').checked = prefs.get('invertTilt', false);
+  $('#invertPan').checked = prefs.get('invertPan', false);
+  presetTime.value = prefs.get('presetTime', 2);
+  setMode(prefs.get('mode', 'joystick'));
+}
+
+$('#exportBtn').addEventListener('click', (e) => run(e.currentTarget, async () => {
+  const config = await api('config', $('#exportSecrets').checked ? { secrets: 1 } : {});
+  config.exported = new Date().toISOString();
+  config.ui = {
+    mode,
+    sens: Number(sens.value),
+    invertTilt: $('#invertTilt').checked,
+    invertPan: $('#invertPan').checked,
+    presetTime: Number(presetTime.value),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }));
+  const link = el('a', { href: url, download: `djicontroller-config-${config.exported.slice(0, 10)}.json` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}, 'Configurazione esportata'));
+
+function importNotice(kind, nodes) {
+  $('#importResult').replaceChildren(el('div', { className: `notice ${kind}` }, nodes));
+}
+
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  let config;
+  try {
+    config = JSON.parse(await file.text());
+    if (config?.app !== 'DJIController') throw new Error();
+  } catch (err) {
+    return importNotice('err', [document.createTextNode('Il file non è una configurazione DJIController valida.')]);
+  }
+
+  const presetCount = Array.isArray(config.presets) ? config.presets.length : null;
+  const wifi = config.wifi;
+  const items = [
+    presetCount === null ? 'Preset: invariati' : `Preset: ${presetCount}, sostituiscono quelli attuali`,
+    typeof wifi?.password === 'string' ? `Rete: “${wifi.ssid}”, usata dal prossimo riavvio`
+      : wifi?.ssid ? `Rete: “${wifi.ssid}” senza password, quella attuale resta invariata` : 'Rete: invariata',
+    config.ui ? 'Preferenze della pagina: sì' : 'Preferenze della pagina: invariate',
+  ];
+  const apply = el('button', { className: 'btn primary', textContent: 'Applica' });
+  const cancel = el('button', { className: 'btn', textContent: 'Annulla' });
+  cancel.onclick = () => $('#importResult').replaceChildren();
+  apply.onclick = () => run(apply, async () => {
+    const result = await api('config', {}, { body: config });
+    if (config.ui) {
+      for (const key of UI_KEYS) if (key in config.ui) prefs.set(key, config.ui[key]);
+      applyUiPrefs();
+    }
+    const summary = [];
+    if (result.presets >= 0) summary.push(`${result.presets} preset`);
+    if (result.wifi === 'saved') summary.push('rete salvata');
+    if (config.ui) summary.push('preferenze');
+    importNotice('ok', [document.createTextNode(`Importato: ${summary.join(', ') || 'niente da importare'}.`)]);
+    refreshWifi();
+  }, 'Configurazione importata');
+  importNotice('', [
+    el('b', { textContent: `Importare “${file.name}”?` }),
+    el('ul', {}, items.map((text) => el('li', { textContent: text }))),
+    el('div', { className: 'grid-2' }, [cancel, apply]),
+  ]);
+});
+
+// ---- API guide ----
+// kind: 'read' = only reads (can be tried here), 'move' = moves the gimbal or camera, 'config' = changes settings.
+const API_DOCS = [
+  ['Stato', [
+    { path: 'status', kind: 'read', desc: 'Rete, movimento in corso, angoli attuali e se il gimbal risponde.' },
+    { path: 'angles', kind: 'read', desc: 'Angoli attuali in gradi.', example: 'angles?type=attitude',
+      params: [['type', '<code>attitude</code> (assetto, predefinito) oppure <code>joint</code> (angoli dei motori)']] },
+    { path: 'version', kind: 'read', desc: 'Versione del modulo R SDK del gimbal.' },
+  ]],
+  ['Movimento', [
+    { path: 'position', kind: 'move', desc: 'Porta il gimbal a una posizione in un tempo dato.', example: 'position?yaw=30&pitch=-10&time=2',
+      params: [['yaw, pitch, roll', 'Gradi. Gli assi omessi non si muovono'], ['time', 'Secondi, da 0,1 a 25,5 (predefinito 1)'],
+        ['mode', '<code>abs</code> posizione assoluta (predefinito) o <code>rel</code> spostamento relativo']] },
+    { path: 'joystick', kind: 'move', desc: 'Come muovere lo stick del gimbal: usa la velocità e lo smoothing impostati sul gimbal.',
+      example: 'joystick?yaw=0.5&pitch=0&ms=1000',
+      params: [['yaw, pitch, roll', 'Da -1 a 1 per asse'], ['ms', 'Durata in millisecondi, da 50 a 60000 (predefinito 500)']] },
+    { path: 'speed', kind: 'move', desc: 'Rotazione a velocità fissa in gradi al secondo.', example: 'speed?yaw=20&ms=1000',
+      params: [['yaw, pitch, roll', '°/s, massimo ±360'], ['ms', 'Durata in millisecondi, da 50 a 60000 (predefinito 500)']] },
+    { path: 'stop', kind: 'move', desc: 'Ferma subito joystick e velocità.' },
+    { path: 'recenter', kind: 'move', desc: 'Riporta il gimbal al centro.' },
+    { path: 'follow', kind: 'move', desc: 'Modalità follow.', example: 'follow?mode=lock',
+      params: [['mode', '<code>lock</code>, <code>yaw</code> (segue il pan) o <code>sport</code>']] },
+  ]],
+  ['Camera', [
+    { path: 'record', kind: 'move', desc: 'Avvia o ferma la registrazione (serve il cavo di controllo camera).', example: 'record?on=1',
+      params: [['on', '<code>1</code> avvia, <code>0</code> ferma']] },
+    { path: 'shutter', kind: 'move', desc: 'Scatta una foto.' },
+    { path: 'activetrack', kind: 'move', desc: 'Attiva o disattiva ActiveTrack.' },
+  ]],
+  ['Preset', [
+    { path: 'presets', kind: 'read', desc: 'Elenco dei preset salvati con il loro <code>slot</code>.' },
+    { path: 'presets/recall', kind: 'move', desc: 'Porta il gimbal su un preset.', example: 'presets/recall?slot=0&time=2',
+      params: [['slot', 'Numero del preset (vedi <code>/api/presets</code>)'], ['time', 'Secondi di transizione (predefinito 2)']] },
+    { path: 'presets/save', kind: 'config', desc: 'Salva la posizione attuale come preset.', example: 'presets/save?name=Totale',
+      params: [['name', 'Nome (obbligatorio per un preset nuovo)'], ['slot', 'Facoltativo: sovrascrive quel preset'],
+        ['yaw, pitch, roll', 'Facoltativi, tutti e tre: salva questi angoli invece della posizione attuale']] },
+    { path: 'presets/delete', kind: 'config', desc: 'Elimina un preset.', example: 'presets/delete?slot=0', params: [['slot', 'Numero del preset']] },
+  ]],
+  ['Wi-Fi', [
+    { path: 'wifi/status', kind: 'read', desc: 'Rete propria, rete a cui è collegato, rete salvata e stato del collegamento.' },
+    { path: 'wifi/scan', kind: 'read', desc: 'Reti vicine. Se la risposta è <code>{"scanning":true}</code>, richiama tra un attimo.',
+      params: [['refresh', '<code>1</code> per una nuova ricerca']] },
+    { path: 'wifi/join', kind: 'config', desc: 'Prova a collegarsi a una rete e la salva solo se ci riesce. Segui l’esito con <code>wifi/status</code>.',
+      example: 'wifi/join?ssid=NomeRete&password=Segreta', params: [['ssid', 'Nome della rete (solo 2,4 GHz)'], ['password', 'Password']] },
+    { path: 'wifi/forget', kind: 'config', desc: 'Dimentica la rete salvata e riavvia il controller.' },
+  ]],
+  ['Configurazione', [
+    { path: 'config', kind: 'read', desc: 'Esporta preset e rete salvata in JSON.',
+      params: [['secrets', '<code>1</code> per includere la password Wi-Fi']] },
+    { path: 'config', method: 'POST', kind: 'config', desc: 'Importa una configurazione esportata, inviata come corpo JSON.',
+      curl: (base) => `curl -X POST -H 'Content-Type: application/json' --data @config.json ${base}/api/config` },
+  ]],
+];
+
+const apiBase = `${location.protocol}//${location.host}`;
+
+// navigator.clipboard needs HTTPS, which the controller doesn't have: fall back to a temporary textarea.
+function copyText(text) {
+  const area = el('textarea', { value: text, style: 'position:fixed;opacity:0' });
+  document.body.append(area);
+  area.select();
+  const ok = document.execCommand('copy');
+  area.remove();
+  toast(ok ? 'Copiato' : 'Copia non riuscita', !ok);
+}
+
+function renderApiDocs() {
+  $('#apiBase').textContent = apiBase;
+  const holdPress = `${apiBase}/api/joystick?yaw=0.5&ms=60000`;
+  const holdRelease = `${apiBase}/api/stop`;
+  $('#holdExample').replaceChildren(
+    el('div', { className: 'note', textContent: 'Pressione' }), el('pre', { className: 'code', textContent: holdPress }),
+    el('div', { className: 'note', textContent: 'Rilascio' }), el('pre', { className: 'code', textContent: holdRelease }));
+
+  const kinds = { read: ['GET', 'read', 'Prova'], move: ['GET', 'move'], config: ['GET', ''] };
+  const cards = API_DOCS.map(([group, endpoints]) => el('div', { className: 'card' }, [
+    el('h2', { textContent: group }),
+    ...endpoints.map((ep) => {
+      const [method, badgeClass, tryLabel] = kinds[ep.kind];
+      const url = `${apiBase}/api/${ep.example || ep.path}`;
+      const curl = ep.curl ? ep.curl(apiBase) : `curl "${url}"`;
+      const response = el('pre', { className: 'code response', hidden: true });
+      const actions = [];
+      if (!ep.method) {
+        const copyUrl = el('button', { className: 'btn', textContent: 'Copia URL' });
+        copyUrl.onclick = () => copyText(url);
+        actions.push(copyUrl);
+      }
+      const copyCurl = el('button', { className: 'btn', textContent: 'Copia curl' });
+      copyCurl.onclick = () => copyText(curl);
+      actions.push(copyCurl);
+      if (tryLabel && !ep.method) {
+        const tryBtn = el('button', { className: 'btn primary', textContent: tryLabel });
+        tryBtn.onclick = () => run(tryBtn, async () => {
+          response.hidden = false;
+          response.textContent = '…';
+          const res = await fetch(url, { cache: 'no-store' });
+          const text = await res.text();
+          try { response.textContent = `HTTP ${res.status}\n${JSON.stringify(JSON.parse(text), null, 2)}`; }
+          catch (e) { response.textContent = `HTTP ${res.status}\n${text}`; }
+        });
+        actions.push(tryBtn);
+      }
+      const rows = (ep.params || []).map(([name, text]) =>
+        el('tr', {}, [el('td', {}, [el('code', { textContent: name })]), el('td', { innerHTML: text })]));
+      return el('details', { className: 'ep' }, [
+        el('summary', {}, [
+          el('span', { className: `method ${badgeClass}`, textContent: ep.method || method }),
+          el('div', {}, [el('div', { className: 'path', textContent: `/api/${ep.path}` }), el('div', { className: 'desc', innerHTML: ep.desc })]),
+        ]),
+        el('div', { className: 'body' }, [
+          ...(rows.length ? [el('table', {}, rows)] : []),
+          el('pre', { className: 'code', textContent: ep.method ? curl : url }),
+          el('div', { className: 'actions' }, actions),
+          response,
+        ]),
+      ]);
+    }),
+  ]));
+  const legend = el('p', { className: 'note', style: 'text-align:center' },
+    [document.createTextNode('Verde: solo lettura, si può provare qui. Arancione: muove gimbal o camera.')]);
+  $('#apiDocs').replaceChildren(...cards, legend);
+}
+renderApiDocs();
+
+// ---- Start ----
+showTab(prefs.get('tab', 'control'));
+pollStatus();
+</script>
+</body>
+</html>

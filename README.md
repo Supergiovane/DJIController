@@ -9,6 +9,7 @@ RSA/NATO usando il protocollo **DJI R SDK** su bus CAN.
 - [x] Driver CAN per ESP32 (periferica TWAI integrata)
 - [x] Console seriale per provare i comandi
 - [x] Controllo via Wi-Fi con comandi HTTP
+- [x] Interfaccia web: joystick, preset, collegamento Wi-Fi, backup della configurazione, guida alle API
 - [ ] Morsetto NATO stampato in 3D con pogo pin
 - [ ] Verifica su RS 4 / RS 4 Pro reale
 
@@ -91,15 +92,39 @@ All'avvio l'ESP32 prova a collegarsi alla rete salvata in flash. Se non ce n'è 
 | Password | nessuna (rete aperta) |
 | Indirizzo | `http://192.168.4.1` |
 
-Per salvare la tua rete: `http://192.168.4.1/api/wifi?ssid=NomeRete&password=Segreto` (oppure da console
-`wifi NomeRete Segreto`). L'ESP32 si riavvia e da quel momento risponde anche su `http://djicontroller.local`
-(mDNS). `api/wifi?reset=1` dimentica la rete. SSID, hostname e un'eventuale password dell'access point (almeno 8 caratteri)
-si impostano in [platformio.ini](platformio.ini).
+Per collegarlo alla tua rete usa la scheda **Impostazioni** dell'interfaccia web (oppure da console
+`wifi NomeRete Segreto`). L'ESP32 prova la rete tenendo attivo il proprio access point e la salva solo se la
+connessione riesce; dal riavvio successivo risponde su `http://djicontroller.local` (mDNS) o sul suo IP.
+SSID, hostname e un'eventuale password dell'access point (almeno 8 caratteri) si impostano in
+[platformio.ini](platformio.ini).
+
+### Interfaccia web
+
+Apri l'indirizzo del controller nel browser (`http://192.168.4.1` in access point, altrimenti
+`http://djicontroller.local`). La pagina è servita dall'ESP32 e funziona senza internet. Ha quattro schede:
+
+| Scheda | Contenuto |
+|---|---|
+| Controllo | Joystick virtuale pan/tilt (joystick nativo o velocità), recenter, stop, modalità follow, camera, posizione esatta |
+| Preset | Salva la posizione attuale con un nome, richiamala con un tempo di transizione, aggiornala o eliminala |
+| Impostazioni | Ricerca reti e collegamento Wi-Fi, backup della configurazione (esporta e importa), "dimentica rete" |
+| API | Guida agli endpoint con esempi copiabili e prova dal vivo di quelli in sola lettura |
+
+I preset sono salvati sull'ESP32, quindi sono gli stessi da qualsiasi dispositivo. Le preferenze del joystick
+(modalità, velocità, inversioni) restano nel browser.
+
+Il **backup** è un file JSON con preset, rete salvata e preferenze della pagina. La password Wi-Fi è inclusa
+solo se selezioni l'apposita casella. All'importazione i preset sostituiscono quelli attuali, mentre la rete
+viene ripristinata solo se il file contiene la password.
+
+La pagina è in [web/index.html](web/index.html): a ogni build viene compressa e incorporata nel firmware da
+[scripts/embed_web.py](scripts/embed_web.py).
 
 ### API HTTP
 
 Tutti gli endpoint accettano GET o POST con i parametri nella query string e rispondono in JSON
-(`{"ok":true}` oppure `{"ok":false,"error":"..."}`). L'elenco è disponibile anche su `/`.
+(`{"ok":true}` oppure `{"ok":false,"error":"..."}`). L'elenco testuale è su `/api`, la guida interattiva nella
+scheda API dell'interfaccia.
 
 | Endpoint | Effetto |
 |---|---|
@@ -115,7 +140,16 @@ Tutti gli endpoint accettano GET o POST con i parametri nella query string e ris
 | `/api/record?on=1\|0` | Avvia o ferma la registrazione (serve il cavo di controllo camera) |
 | `/api/shutter` | Scatto |
 | `/api/activetrack` | Attiva o disattiva ActiveTrack |
-| `/api/wifi?ssid=&password=` | Salva la rete e riavvia (`reset=1` la dimentica) |
+| `/api/presets` | Elenco dei preset |
+| `/api/presets/save?name=[&slot=][&yaw=&roll=&pitch=]` | Salva la posizione attuale (o gli angoli dati) come preset |
+| `/api/presets/recall?slot=&time=2` | Va al preset in `time` secondi |
+| `/api/presets/delete?slot=` | Elimina un preset |
+| `/api/wifi/status` | Access point, rete collegata, rete salvata, esito del collegamento |
+| `/api/wifi/scan[?refresh=1]` | Reti vicine (`{"scanning":true}` finché la ricerca non finisce) |
+| `/api/wifi/join?ssid=&password=` | Prova una rete e la salva solo se il collegamento riesce |
+| `/api/wifi/forget` | Dimentica la rete salvata e riavvia |
+| `/api/config[?secrets=1]` | Esporta la configurazione (password Wi-Fi solo con `secrets=1`) |
+| `POST /api/config` | Importa una configurazione (corpo JSON) |
 
 Esempi:
 
@@ -146,7 +180,7 @@ Deck) basta ripetere la chiamata più spesso di `ms` e chiamare `/api/stop` al r
 | `push 1\|0` | Attiva o disattiva l'invio periodico degli angoli |
 | `rec 1\|0` | Avvia o ferma la registrazione (serve il cavo di controllo camera) |
 | `ip` | Mostra la rete |
-| `wifi SSID PASS` | Salva la rete e riavvia (`wifi reset` la dimentica) |
+| `wifi SSID PASS` | Prova una rete e la salva se il collegamento riesce (`wifi reset` la dimentica e riavvia) |
 
 ## Struttura
 
@@ -155,9 +189,12 @@ lib/DjiRSdk/      libreria protocollo, senza dipendenze dall'hardware (testabile
 src/CanBus.*      driver TWAI dell'ESP32
 src/Gimbal.*      client R SDK: invio a frammenti, attesa risposte, push
 src/MotionHold.*  invio continuo di velocità/joystick con scadenza
-src/WifiSetup.*   rete: station con credenziali salvate, oppure access point
-src/WebApi.*      API HTTP
+src/WifiSetup.*   rete: station con credenziali salvate oppure access point, ricerca e collegamento
+src/PresetStore.* preset salvati in flash
+src/WebApi.*      interfaccia web e API HTTP
 src/main.cpp      avvio e console seriale
+web/index.html    interfaccia web (incorporata nel firmware a ogni build)
+scripts/          script di build
 test/             test Unity (env native)
 hardware/         morsetto NATO stampabile in 3D (modello parametrico Python + STL)
 docs/protocol.md  riassunto del protocollo
