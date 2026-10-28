@@ -92,6 +92,25 @@ sicuro per verificare protocollo e contatti sul gimbal reale.
    3920 compare decodificato, se è R SDK, oppure come riepilogo dei byte per ID. `sniff off` torna alla modalità
    normale.
 
+## Pinout del ricevitore SmallRig 3920RX
+
+![Collegamenti tra il flat interno e i pogo pin del 3920RX](../docs/Pinout_Smallrig_3920RX.png)
+
+Dentro il ricevitore un flat a 6 piste arriva agli 8 pogo pin. Le piste, da sinistra: verde, verde, giallo, rosso,
+blu, blu. Sui pin (foto con la vite di serraggio in alto):
+
+| Fila (dall'alto) | Sinistra | Destra |
+|---|---|---|
+| 1 | blu | blu |
+| 2 | non collegato | rosso |
+| 3 | non collegato | giallo |
+| 4 | verde | verde |
+
+Le due coppie doppie (blu e verde, ciascuna su due piste e due pin) sono con ogni probabilità alimentazione e GND,
+raddoppiate per portare più corrente; rosso e giallo sono quindi i candidati per CANH e CANL. I due pin liberi
+sarebbero i segnali che il 3920RX non usa (es. SBUS_RX). Sono ipotesi: i segnali vanno confermati con il
+multimetro come descritto sotto.
+
 ## Identificare gli 8 contatti
 
 La documentazione DJI descrive 6 contatti per l'RS 2 (VCC 8 V, CANL, SBUS_RX, CANH, AD_COM, GND), mentre questa
