@@ -122,6 +122,15 @@ void saveWifi(const String& ssid, const String& password) {
   saveCredentials(ssid, password);
 }
 
+bool prepareWifiImport(const String& ssid, const String& password) {
+  if (WiFi.status() == WL_CONNECTED && WiFi.SSID() == ssid) {
+    saveCredentials(ssid, password);
+    return false;
+  }
+  if (apActive) saveCredentials(ssid, password);
+  return true;
+}
+
 String wifiStatusJson() {
   const bool connected = WiFi.status() == WL_CONNECTED;
   String json = "{\"hostname\":" + jsonString(String(WIFI_HOSTNAME) + ".local");

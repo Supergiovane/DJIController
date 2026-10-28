@@ -21,6 +21,12 @@ String savedWifiSsid();
 String savedWifiPassword();
 void saveWifi(const String& ssid, const String& password);
 
+// First half of applying imported credentials. Returns true when joinWifi() should follow (call it after
+// answering the HTTP request). On the access point the credentials are saved right away, since the network may be
+// out of range now but valid at the next boot; when connected elsewhere they are left to joinWifi(), which saves
+// them only on success so the controller stays reachable.
+bool prepareWifiImport(const String& ssid, const String& password);
+
 // {"ap":..., "station":..., "join":...} for the web UI.
 String wifiStatusJson();
 

@@ -271,7 +271,7 @@
     <div class="card">
       <h2>Backup configurazione</h2>
       <p class="note">Preset, rete salvata e preferenze di questa pagina in un file JSON, da reimportare qui o su un altro controller.</p>
-      <label class="check"><input type="checkbox" id="exportSecrets"> Includi la password Wi-Fi nel file</label>
+      <label class="check"><input type="checkbox" id="exportSecrets"> Includi la password Wi-Fi (serve per ripristinare la rete)</label>
       <div class="grid-2" style="margin-top:12px">
         <button class="btn" id="exportBtn">Esporta</button>
         <button class="btn" id="importBtn">Importa…</button>
@@ -682,7 +682,8 @@ function joinNotice(kind, nodes) {
   $('#joinResult').replaceChildren(el('div', { className: `notice ${kind}` }, nodes));
 }
 
-async function followJoin(ssid) {
+// Polls the join started for `ssid` and reports the outcome through `notice` (the Wi-Fi or the import panel).
+async function followJoin(ssid, notice = joinNotice) {
   if (joinPolling) return;
   joinPolling = true;
   const started = Date.now();
@@ -694,25 +695,27 @@ async function followJoin(ssid) {
     renderWifiStatus(s);
     if (s.join.state === 'connected' && s.station) {
       const url = `http://${s.station.ip}`;
-      joinNotice('ok', [
+      notice('ok', [
         el('b', { textContent: `Collegato a ${s.station.ssid}.` }),
         el('br'),
         document.createTextNode(`Collega questo dispositivo a “${s.station.ssid}” e apri `),
         el('a', { href: `http://${s.hostname}`, textContent: s.hostname }),
         document.createTextNode(' oppure '),
         el('a', { href: url, textContent: url }),
-        document.createTextNode('. La rete propria resta attiva fino al prossimo riavvio.'),
+        document.createTextNode(s.ap ? '. La rete propria resta attiva fino al prossimo riavvio.' : '.'),
       ]);
       joinPolling = false;
       return;
     }
     if (s.join.state === 'failed') {
-      joinNotice('err', [document.createTextNode(`Connessione a “${ssid}” non riuscita. Controlla la password e che la rete sia a 2,4 GHz.`)]);
+      const saved = s.saved === ssid && s.ap;
+      notice('err', [document.createTextNode(`Connessione a “${ssid}” non riuscita. Controlla la password e che la rete sia a 2,4 GHz.` +
+        (saved ? ' La rete resta comunque salvata e verrà riprovata al prossimo avvio.' : ''))]);
       joinPolling = false;
       return;
     }
   }
-  joinNotice('err', [document.createTextNode('Il controller non risponde più: probabilmente si è collegato alla nuova rete. Collegati anche tu a quella rete e apri http://djicontroller.local')]);
+  notice('err', [document.createTextNode('Il controller non risponde più: probabilmente si è collegato alla nuova rete. Collegati anche tu a quella rete e apri http://djicontroller.local')]);
   joinPolling = false;
 }
 
@@ -735,6 +738,9 @@ $('#forgetBtn').addEventListener('click', (e) => {
 
 // ---- Backup ----
 const UI_KEYS = ['mode', 'sens', 'invertTilt', 'invertPan', 'presetTime'];
+
+$('#exportSecrets').checked = prefs.get('exportSecrets', false);
+$('#exportSecrets').addEventListener('change', (e) => prefs.set('exportSecrets', e.target.checked));
 
 function applyUiPrefs() {
   sens.value = prefs.get('sens', 50);
@@ -781,17 +787,25 @@ $('#importFile').addEventListener('change', async (e) => {
 
   const presetCount = Array.isArray(config.presets) ? config.presets.length : null;
   const wifi = config.wifi;
+  const hasPassword = typeof wifi?.password === 'string';
   const items = [
     presetCount === null ? 'Preset: invariati' : `Preset: ${presetCount}, sostituiscono quelli attuali`,
-    typeof wifi?.password === 'string' ? `Rete: “${wifi.ssid}”, usata dal prossimo riavvio`
-      : wifi?.ssid ? `Rete: “${wifi.ssid}” senza password, quella attuale resta invariata` : 'Rete: invariata',
+    hasPassword ? `Rete: “${wifi.ssid}”, il controller si collega subito`
+      : wifi?.ssid ? `Rete: “${wifi.ssid}”, il file non contiene la password` : 'Rete: invariata',
     config.ui ? 'Preferenze della pagina: sì' : 'Preferenze della pagina: invariate',
   ];
+  // A file exported without the Wi-Fi password can still restore the network if the password is typed here.
+  const passwordInput = el('input', { type: 'password', autocomplete: 'off', placeholder: 'Lascia vuoto per non cambiare la rete' });
+  const passwordField = wifi?.ssid && !hasPassword
+    ? [el('label', { className: 'field', style: 'margin-bottom:12px' }, [document.createTextNode(`Password di “${wifi.ssid}”`), passwordInput])]
+    : [];
   const apply = el('button', { className: 'btn primary', textContent: 'Applica' });
   const cancel = el('button', { className: 'btn', textContent: 'Annulla' });
   cancel.onclick = () => $('#importResult').replaceChildren();
   apply.onclick = () => run(apply, async () => {
-    const result = await api('config', {}, { body: config });
+    const body = { ...config };
+    if (passwordField.length && passwordInput.value) body.wifi = { ...wifi, password: passwordInput.value };
+    const result = await api('config', {}, { body });
     if (config.ui) {
       for (const key of UI_KEYS) if (key in config.ui) prefs.set(key, config.ui[key]);
       applyUiPrefs();
@@ -800,12 +814,20 @@ $('#importFile').addEventListener('change', async (e) => {
     if (result.presets >= 0) summary.push(`${result.presets} preset`);
     if (result.wifi === 'saved') summary.push('rete salvata');
     if (config.ui) summary.push('preferenze');
-    importNotice('ok', [document.createTextNode(`Importato: ${summary.join(', ') || 'niente da importare'}.`)]);
-    refreshWifi();
+    const done = `Importato: ${summary.join(', ') || 'niente da importare'}.`;
+    if (result.wifi === 'joining') {
+      importNotice('', [document.createTextNode(done), el('br'), el('span', { className: 'spin' }),
+        document.createTextNode(`Collegamento a “${body.wifi.ssid}”…`)]);
+      followJoin(body.wifi.ssid, importNotice);
+    } else {
+      importNotice('ok', [document.createTextNode(done)]);
+      refreshWifi();
+    }
   }, 'Configurazione importata');
   importNotice('', [
     el('b', { textContent: `Importare “${file.name}”?` }),
     el('ul', {}, items.map((text) => el('li', { textContent: text }))),
+    ...passwordField,
     el('div', { className: 'grid-2' }, [cancel, apply]),
   ]);
 });

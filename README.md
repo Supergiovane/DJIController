@@ -119,8 +119,9 @@ I preset sono salvati sull'ESP32, quindi sono gli stessi da qualsiasi dispositiv
 (modalità, velocità, inversioni) restano nel browser.
 
 Il **backup** è un file JSON con preset, rete salvata e preferenze della pagina. La password Wi-Fi è inclusa
-solo se selezioni l'apposita casella. All'importazione i preset sostituiscono quelli attuali, mentre la rete
-viene ripristinata solo se il file contiene la password.
+solo se selezioni l'apposita casella; se manca, la pagina la chiede durante l'importazione. All'importazione i preset
+sostituiscono quelli attuali e il controller si collega subito alla rete del file. Se in quel momento è collegato a
+un'altra rete, la nuova viene salvata solo se il collegamento riesce, così il controller resta raggiungibile.
 
 La pagina è in [web/index.html](web/index.html): a ogni build viene compressa e incorporata nel firmware da
 [scripts/embed_web.py](scripts/embed_web.py).

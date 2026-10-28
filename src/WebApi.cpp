@@ -314,12 +314,17 @@ void WebApi::importConfig() {
 
   // Without a password we can't restore the network, and saving an empty one would break the current setup.
   const char* wifiResult = "skipped";
+  bool join = false;
   JsonObjectConst wifi = doc["wifi"];
-  if (wifi["ssid"].is<const char*>() && wifi["password"].is<const char*>()) {
-    saveWifi(wifi["ssid"].as<String>(), wifi["password"].as<String>());
-    wifiResult = "saved";
+  const String ssid = wifi["ssid"] | "";
+  const String password = wifi["password"] | "";
+  if (ssid.length() > 0 && wifi["password"].is<const char*>()) {
+    join = prepareWifiImport(ssid, password);
+    wifiResult = join ? "joining" : "saved";
   }
   sendJson(200, "{\"ok\":true,\"presets\":" + String(imported) + ",\"wifi\":\"" + wifiResult + "\"}");
+  // After answering: switching networks may briefly drop this client.
+  if (join) joinWifi(ssid, password);
 }
 
 void WebApi::sendCommand(dji::Packet packet) {
